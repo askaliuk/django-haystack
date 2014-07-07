@@ -111,10 +111,13 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         # during the ``update`` & if it doesn't match, we'll put the new
         # mapping.
         try:
-            self.existing_mapping = self.conn.indices.get_mapping(index=self.index_name)
-        except Exception:
-            if not self.silently_fail:
-                raise
+            self.existing_mapping = self.conn.indices.get_mapping(
+                index=self.index_name)
+        except elasticsearch.TransportError as e:
+            self.log.warning("Failed to get mapping from Elasticsearch: %s", e)
+            # if the existing mapping does not exist, clean it and try to
+            # create new one.
+            self.existing_mapping = {}
 
         unified_index = haystack.connections[self.connection_alias].get_unified_index()
         self.content_field_name, field_mapping = self.build_schema(unified_index.all_searchfields())
@@ -134,7 +137,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
                 self.conn.indices.create(self.index_name, self.DEFAULT_SETTINGS)
                 self.conn.indices.put_mapping(index=self.index_name, doc_type='modelresult', body=current_mapping)
                 self.existing_mapping = current_mapping
-            except Exception:
+            except elasticsearch.TransportError as e:
                 if not self.silently_fail:
                     raise
 
