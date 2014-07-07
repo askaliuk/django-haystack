@@ -111,8 +111,12 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         # during the ``update`` & if it doesn't match, we'll put the new
         # mapping.
         try:
-            self.existing_mapping = self.conn.indices.get_mapping(
-                index=self.index_name)
+            mapping = self.conn.indices.get_mapping(
+                index=self.index_name, doc_type='modelresult')
+            if self.index_name in mapping:
+                self.existing_mapping = mapping[self.index_name]['mappings']
+            # hacky way to make mapping match
+            self.existing_mapping['modelresult']['properties'].pop("id", None)
         except elasticsearch.TransportError as e:
             self.log.warning("Failed to get mapping from Elasticsearch: %s", e)
             # if the existing mapping does not exist, clean it and try to
@@ -710,7 +714,7 @@ FIELD_MAPPINGS = {
     'edge_ngram': {'type': 'string', 'analyzer': 'edgengram_analyzer'},        
     'ngram':      {'type': 'string', 'analyzer': 'ngram_analyzer'},        
     'date':       {'type': 'date'},
-    'datetime':   {'type': 'date'},
+    'datetime':   {'type': 'date', 'format': 'date_time'},
 
     'location':   {'type': 'geo_point'},        
     'boolean':    {'type': 'boolean'},
