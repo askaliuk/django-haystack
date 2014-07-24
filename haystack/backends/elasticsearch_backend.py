@@ -629,7 +629,12 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         }
 
         for field_name, field_class in fields.items():
-            field_mapping = FIELD_MAPPINGS.get(field_class.field_type, DEFAULT_FIELD_MAPPING).copy()
+
+            if hasattr(field_class, 'custom_mapping'):
+                field_mapping = field_class.custom_mapping
+            else:
+                field_mapping = FIELD_MAPPINGS.get(field_class.field_type, DEFAULT_FIELD_MAPPING).copy()
+
             if field_class.boost != 1.0:
                 field_mapping['boost'] = field_class.boost
 
