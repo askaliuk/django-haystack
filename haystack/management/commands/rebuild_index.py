@@ -13,4 +13,5 @@ class Command(BaseCommand):
 
     def handle(self, **options):
         call_command('clear_index', **options)
+        options["force_rebuild"] = True
         call_command('update_index', **options)

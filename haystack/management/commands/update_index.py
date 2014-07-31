@@ -73,7 +73,7 @@ def worker(bits):
         do_remove(backend, index, model, pks_seen, start, upper_bound, verbosity=verbosity)
 
 
-def do_update(backend, index, qs, start, end, total, verbosity=1):
+def do_update(backend, index, qs, start, end, total, verbosity=1, force_rebuild=False):
     # Get a clone of the QuerySet so that the cache doesn't bloat up
     # in memory. Useful when reindexing large amounts of data.
     small_cache_qs = qs.all()
@@ -86,7 +86,7 @@ def do_update(backend, index, qs, start, end, total, verbosity=1):
             print("  indexed %s - %d of %d (by %s)." % (start + 1, end, total, os.getpid()))
 
     # FIXME: Get the right backend.
-    backend.update(index, current_qs)
+    backend.update(index, current_qs, force_rebuild=force_rebuild)
 
     # Clear out the DB connections queries because it bloats up RAM.
     reset_queries()
@@ -218,12 +218,13 @@ class Command(LabelCommand):
     def handle_label(self, label, **options):
         for using in self.backends:
             try:
-                self.update_backend(label, using)
+                force_rebuild = options.get("force_rebuild", False)
+                self.update_backend(label, using, force_rebuild=force_rebuild)
             except:
                 logging.exception("Error updating %s using %s ", label, using)
                 raise
 
-    def update_backend(self, label, using):
+    def update_backend(self, label, using, force_rebuild=False):
         from haystack.exceptions import NotHandled
 
         backend = haystack_connections[using].get_backend()
@@ -263,9 +264,9 @@ class Command(LabelCommand):
                 end = min(start + batch_size, total)
 
                 if self.workers == 0:
-                    do_update(backend, index, qs, start, end, total, self.verbosity)
+                    do_update(backend, index, qs, start, end, total, self.verbosity, force_rebuild)
                 else:
-                    ghetto_queue.append(('do_update', model, start, end, total, using, self.start_date, self.end_date, self.verbosity))
+                    ghetto_queue.append(('do_update', model, start, end, total, using, self.start_date, self.end_date, self.verbosity, force_rebuild))
 
             if self.workers > 0:
                 pool = multiprocessing.Pool(self.workers)

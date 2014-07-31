@@ -103,26 +103,10 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         self.setup_complete = False
         self.existing_mapping = {}
 
-    def setup(self):
+    def setup(self, force_rebuild=False):
         """
         Defers loading until needed.
         """
-        # Get the existing mapping & cache it. We'll compare it
-        # during the ``update`` & if it doesn't match, we'll put the new
-        # mapping.
-        try:
-            mapping = self.conn.indices.get_mapping(
-                index=self.index_name, doc_type='modelresult')
-            if self.index_name in mapping:
-                self.existing_mapping = mapping[self.index_name]['mappings']
-            # hacky way to make mapping match
-            self.existing_mapping['modelresult']['properties'].pop("id", None)
-        except elasticsearch.TransportError as e:
-            self.log.warning("Failed to get mapping from Elasticsearch: %s", e)
-            # if the existing mapping does not exist, clean it and try to
-            # create new one.
-            self.existing_mapping = {}
-
         unified_index = haystack.connections[self.connection_alias].get_unified_index()
         self.content_field_name, field_mapping = self.build_schema(unified_index.all_searchfields())
         current_mapping = {
@@ -135,7 +119,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             }
         }
 
-        if current_mapping != self.existing_mapping:
+        if force_rebuild:
             try:
                 # Make sure the index is there first.
                 self.conn.indices.create(self.index_name, self.DEFAULT_SETTINGS)
@@ -147,10 +131,10 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
 
         self.setup_complete = True
 
-    def update(self, index, iterable, commit=True):
+    def update(self, index, iterable, commit=True, force_rebuild=False):
         if not self.setup_complete:
             try:
-                self.setup()
+                self.setup(force_rebuild)
             except elasticsearch.TransportError as e:
                 if not self.silently_fail:
                     raise
