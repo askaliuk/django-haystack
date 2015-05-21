@@ -195,18 +195,23 @@ class UnifiedIndex(object):
             indexes = self.collect_indexes()
 
         for index in indexes:
-            model = index.get_model()
+            models = []
+            if hasattr(index, "get_models"):
+                models = index.get_models()
+            else:
+                models = [index.get_model()]
 
-            if model in self.indexes:
-                raise ImproperlyConfigured(
-                    "Model '%s' has more than one 'SearchIndex`` handling it. "
-                    "Please exclude either '%s' or '%s' using the 'EXCLUDED_INDEXES' "
-                    "setting defined in 'settings.HAYSTACK_CONNECTIONS'." % (
-                        model, self.indexes[model], index
+            for model in models:
+                if model in self.indexes:
+                    raise ImproperlyConfigured(
+                        "Model '%s' has more than one 'SearchIndex`` handling it. "
+                        "Please exclude either '%s' or '%s' using the 'EXCLUDED_INDEXES' "
+                        "setting defined in 'settings.HAYSTACK_CONNECTIONS'." % (
+                            model, self.indexes[model], index
+                        )
                     )
-                )
 
-            self.indexes[model] = index
+                self.indexes[model] = index
             self.collect_fields(index)
 
         self._built = True
