@@ -472,6 +472,10 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         if end_offset is not None and end_offset > start_offset:
             search_kwargs['size'] = end_offset - start_offset
 
+        # additional post-processing of search_kwargs before sending to ES
+        if hasattr(self, "prepare_search_kwargs"):
+            search_kwargs = self.prepare_search_kwargs(search_kwargs)
+
         try:
             raw_results = self.conn.search(body=search_kwargs,
                                            index=self.index_name,
